@@ -1,0 +1,10 @@
+streamlit
+pandas
+scikit-learn
+joblib
+matplotlib
+torch
+holidays
+openpyxl
+seaborn
+ploty
