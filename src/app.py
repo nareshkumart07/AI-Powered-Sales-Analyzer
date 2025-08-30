@@ -13,7 +13,7 @@ from eda import (
     plot_new_vs_returning_customers, plot_average_order_value,
     analyze_market_basket, display_eda_insights
 )
-from segmentation import (
+from customer_segmentation import (
     calculate_rfm_metrics, segment_customers, assign_business_actions,
     generate_business_summary, plot_rfm_pie_charts, plot_rfm_sales_by_segment,
     plot_rfm_distribution, display_rfm_insights, find_optimal_clusters,
