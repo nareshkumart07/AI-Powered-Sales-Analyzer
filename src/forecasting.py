@@ -225,27 +225,19 @@ def generate_future_forecasts(model: nn.Module, daily_df: pd.DataFrame, scaler: 
     future_df.set_index('Date', inplace=True)
     return future_df
 
-def plot_full_forecast_visual(daily_df: pd.DataFrame, future_df: pd.DataFrame, results_df: pd.DataFrame, product_stock_code: str) -> go.Figure:
-    """Creates a comprehensive forecast chart showing historical, actual, predicted, and future sales."""
+def plot_focused_forecast(future_df: pd.DataFrame, results_df: pd.DataFrame, product_stock_code: str) -> go.Figure:
+    """Creates a forecast chart showing actual vs. predicted sales and the future forecast."""
     fig = go.Figure()
-
-    # Historical Training Data
-    train_end_index = results_df.index[0]
-    train_df = daily_df[daily_df.index < train_end_index]
-    fig.add_trace(go.Scatter(
-        x=train_df.index, y=train_df['Quantity'], name='Historical Sales',
-        mode='lines', line=dict(color='lightgrey', width=1.5)
-    ))
 
     # Actual Sales on Test Data
     fig.add_trace(go.Scatter(
-        x=results_df.index, y=results_df['Actual'], name='Actual Sales',
+        x=results_df.index, y=results_df['Actual'], name='Actual Sales (Recent)',
         mode='lines', line=dict(color=COLOR_PALETTE['primary'], width=2)
     ))
 
     # Predicted Sales on Test Data
     fig.add_trace(go.Scatter(
-        x=results_df.index, y=results_df['Predicted'], name='Predicted Sales',
+        x=results_df.index, y=results_df['Predicted'], name='Predicted Sales (Recent)',
         mode='lines', line=dict(color=COLOR_PALETTE['danger'], dash='dash', width=2)
     ))
 
@@ -256,7 +248,7 @@ def plot_full_forecast_visual(daily_df: pd.DataFrame, future_df: pd.DataFrame, r
     ))
 
     fig.update_layout(
-        title=f'<b>Sales Analysis & Forecast for Product {product_stock_code}</b>',
+        title=f'<b>Sales Forecast for Product {product_stock_code}</b>',
         template='plotly_white',
         yaxis_title='Items Sold per Day',
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
@@ -480,7 +472,7 @@ def run_forecasting_pipeline(
     st.subheader(f"{model_name} Performance")
     st.metric("Average Prediction Error", f"± {metrics['MAE']:.2f} items / day")
     
-    st.plotly_chart(plot_full_forecast_visual(daily_sales_df, future_df, results_df, product_stock_code), use_container_width=True)
+    st.plotly_chart(plot_focused_forecast(future_df, results_df, product_stock_code), use_container_width=True)
     
     st.subheader("Forecast Breakdown")
     fig_pie, fig_bar = plot_forecast_breakdown(future_df, daily_sales_df)
