@@ -80,7 +80,7 @@ def main():
 
     if not st.session_state.data_loaded:
         st.info("👋 Welcome! Please upload a sales data file to get started.")
-        # st.image("https://i.imgur.com/uFLyk3z.png", caption="Use the sidebar on the left to upload your file.")
+        st.image("https://i.imgur.com/uFLyk3z.png", caption="Use the sidebar on the left to upload your file.")
         return
         
     st.header("Step 1: Your Data at a Glance")
@@ -156,6 +156,12 @@ def main():
 
         st.markdown("---")
         
+        if st.button("Generate Overall Business Insights Summary", type="primary"):
+            with st.spinner("Analyzing your business..."):
+                display_eda_insights(st.session_state.df_cleaned)
+        
+        st.markdown("---")
+        
         st.header("Drill-Down: Product-Specific Analysis")
         product_list = st.session_state.df_cleaned['Description'].unique()
         selected_product = st.selectbox("Select a Product to Analyze", product_list, key="product_eda")
@@ -179,6 +185,10 @@ def main():
                 st.plotly_chart(plot_monthly_sales(product_df, title_prefix=f"{selected_product}: "), use_container_width=True)
                 st.plotly_chart(plot_daily_sales(product_df, title_prefix=f"{selected_product}: "), use_container_width=True)
                 st.plotly_chart(plot_geographical_sales(product_df, title_prefix=f"{selected_product}: "), use_container_width=True)
+                
+                if st.button(f"Get Insights for {selected_product}", key=f"insights_{selected_product}"):
+                    display_eda_insights(product_df, title_prefix=f"for {selected_product}")
+
 
     with tab2:
         st.header("Get to Know Your Customers Better")
@@ -317,4 +327,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
