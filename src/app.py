@@ -65,7 +65,7 @@ def main():
 
     if not st.session_state.data_loaded:
         st.info("👋 Welcome! Please upload a sales data file to get started.")
-        st.image("https://i.imgur.com/uFLyk3z.png", caption="Use the sidebar on the left to upload your file.")
+        # st.image("https://i.imgur.com/uFLyk3z.png", caption="Use the sidebar on the left to upload your file.")
         return
         
     st.header("Step 1: Your Data at a Glance")
