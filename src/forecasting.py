@@ -343,28 +343,35 @@ def display_forecast_insights(daily_df: pd.DataFrame, metrics: Dict, future_df: 
 def recommend_optimal_price(model: nn.Module, daily_df: pd.DataFrame, scaler: MinMaxScaler, seq_length: int, target_col_idx: int, price_col_idx: int, num_features: int, num_days_to_simulate: int) -> Tuple[pd.Series, pd.DataFrame]:
     """Simulates different prices over a future period to find the one that maximizes total revenue."""
     model.eval()
-    last_sequence_full = daily_df.tail(seq_length).values
     
-    current_price = last_sequence_full[-1, price_col_idx]
+    original_columns = daily_df.columns
+    last_sequence_df = daily_df.tail(seq_length)
+    
+    current_price = last_sequence_df.iloc[-1, price_col_idx]
+    if current_price == 0:
+        st.warning("Current price is zero, cannot simulate price changes. Please check your data.")
+        return None, None
+        
     price_range = np.linspace(current_price * 0.8, current_price * 1.2, 20)
     
     results = []
     with torch.no_grad():
         for price in price_range:
             future_quantities = []
-            temp_sequence_full = last_sequence_full.copy()
+            temp_sequence_df = last_sequence_df.copy()
             
-            temp_sequence_full[:, price_col_idx] = price
+            temp_sequence_df.iloc[:, price_col_idx] = price
             
-            scaled_sequence = scaler.transform(temp_sequence_full)
+            scaled_sequence = scaler.transform(temp_sequence_df)
             current_sequence_tensor = torch.from_numpy(scaled_sequence).unsqueeze(0).float()
 
             for _ in range(num_days_to_simulate):
                 predicted_quantity_scaled = model(current_sequence_tensor).item()
                 
-                dummy_array = np.zeros((1, num_features))
-                dummy_array[0, target_col_idx] = predicted_quantity_scaled
-                predicted_quantity = scaler.inverse_transform(dummy_array)[0, target_col_idx]
+                dummy_df = pd.DataFrame(np.zeros((1, num_features)), columns=original_columns)
+                dummy_df.iloc[0, target_col_idx] = predicted_quantity_scaled
+                
+                predicted_quantity = scaler.inverse_transform(dummy_df)[0, target_col_idx]
                 predicted_quantity = max(0, predicted_quantity)
                 future_quantities.append(predicted_quantity)
 
@@ -412,7 +419,15 @@ def display_pricing_insights(optimal_row: pd.Series, current_price: float, num_d
     """Generates and displays business insights for the pricing recommendation."""
     st.header("📈 Smart Pricing Insights")
     
-    revenue_at_current_price = results_df.iloc[(results_df['Price']-current_price).abs().argsort()[:1]]['Total_Predicted_Revenue'].values[0]
+    if optimal_row is None or results_df is None:
+        return
+
+    revenue_at_current_price_row = results_df.iloc[(results_df['Price']-current_price).abs().argsort()[:1]]
+    if revenue_at_current_price_row.empty:
+        st.warning("Could not calculate revenue uplift.")
+        return
+        
+    revenue_at_current_price = revenue_at_current_price_row['Total_Predicted_Revenue'].values[0]
     potential_uplift = optimal_row['Total_Predicted_Revenue'] - revenue_at_current_price
     uplift_pct = (potential_uplift / revenue_at_current_price) * 100 if revenue_at_current_price > 0 else 0
 
@@ -467,8 +482,8 @@ def run_forecasting_pipeline(
         st.error("There isn't enough data for this product to make a reliable prediction. Please try a different product or upload more data.")
         return
 
-    model_params = {'input_size': X.shape[2], 'hidden_size': 64, 'num_layers': 3, 'output_size': 1}
-    training_params = {'num_epochs': 50, 'learning_rate': 0.01, 'patience': 25}
+    model_params = {'input_size': X.shape[2], 'hidden_size': 128, 'num_layers': 2, 'output_size': 1}
+    training_params = {'num_epochs': 50, 'learning_rate': 0.005, 'patience': 10}
     
     model = LSTMModel(**model_params) if model_type == 'LSTM' else GRUModel(**model_params)
     
@@ -503,5 +518,4 @@ def run_forecasting_pipeline(
     st.session_state.seq_length = seq_length
     st.session_state.target_col_idx = target_col_idx
     st.session_state.model_trained = True
-
 
