@@ -1,21 +1,18 @@
 """
-This module contains all functions for customer segmentation,
-including both simple RFM and advanced K-Means clustering.
+This module contains all functions related to customer segmentation,
+including both RFM and K-Means clustering methods.
 """
-import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from typing import Dict
-
+import streamlit as st
 
 # Import shared resources
 from utilities import COLOR_PALETTE
-
-# --- RFM & K-MEANS ANALYSIS FUNCTIONS ---
 
 def calculate_rfm_metrics(df: pd.DataFrame) -> pd.DataFrame:
     """Calculates Recency, Frequency, and Monetary values."""
@@ -151,6 +148,7 @@ def display_rfm_insights(rfm_df: pd.DataFrame):
     - The **'{summary.index[-1]}'** group represents customers who haven't purchased in a while and may be at risk of leaving.
     - **Action:** Launch a targeted 'we miss you' campaign with a special offer to win them back before they're gone for good.
     """)
+
 
 def find_optimal_clusters(df: pd.DataFrame) -> go.Figure:
     """Calculates and plots the elbow curve to find the optimal number of clusters."""
@@ -351,3 +349,4 @@ def display_kmeans_business_insights(df: pd.DataFrame, cluster_names: Dict):
         st.markdown(f"**Who they are:** {interpretation}")
         st.markdown(f"**How to engage them:** {strategy}")
         st.markdown("---")
+
