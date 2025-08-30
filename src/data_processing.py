@@ -75,4 +75,3 @@ def preprocess_pipeline(df: pd.DataFrame) -> pd.DataFrame:
         st.write("Step 4: Creating new data points for analysis...")
         df = engineer_features(df)
     return df
-
