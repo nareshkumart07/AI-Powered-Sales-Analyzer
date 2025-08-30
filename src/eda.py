@@ -105,6 +105,9 @@ def plot_worst_performers(df: pd.DataFrame, bottom_n: int = 10) -> go.Figure:
 def plot_new_vs_returning_customers(df: pd.DataFrame) -> go.Figure:
     """Creates a pie chart showing revenue from new vs. returning customers."""
     known_customers_df = df[df['Customer ID'] != 'Unknown']
+    if known_customers_df.empty:
+        return go.Figure().update_layout(title_text='<b>No Customer Data to Analyze</b>')
+        
     invoice_counts = known_customers_df.groupby('Customer ID')['Invoice'].nunique().reset_index()
     invoice_counts.columns = ['Customer ID', 'InvoiceCount']
     df_with_counts = pd.merge(known_customers_df, invoice_counts, on='Customer ID')
@@ -145,31 +148,44 @@ def analyze_market_basket(df: pd.DataFrame, top_n: int = 15) -> go.Figure:
                       xaxis_title="Products", yaxis_title="Products")
     return fig
 
-def display_eda_insights(df: pd.DataFrame):
+def display_eda_insights(df: pd.DataFrame, title_prefix: str = "Overall"):
     """Generates and displays a summary of business insights from the EDA."""
-    st.header("💡 Key Business Takeaways from the Overview")
+    st.header(f"💡 Key Business Takeaways {title_prefix}")
     
+    # Time-based insights
     monthly_sales = df.groupby('InvoiceYearMonth')['Revenue'].sum()
     daily_sales = df.groupby('InvoiceWeekday')['Revenue'].sum()
     hourly_sales = df.groupby('InvoiceHour')['Revenue'].sum()
+    
+    # Product insights
     top_product = df.groupby('Description')['Revenue'].sum().nlargest(1)
+    
+    # Geographical insights
     top_country = df.groupby('Country')['Revenue'].sum().nlargest(1)
     
     st.subheader("Performance Highlights")
     col1, col2, col3 = st.columns(3)
-    col1.metric("Busiest Month", monthly_sales.idxmax(), f"${monthly_sales.max():,.0f} in sales")
-    col2.metric("Busiest Day", daily_sales.idxmax())
-    col3.metric("Busiest Hour", f"{hourly_sales.idxmax()}:00 - {hourly_sales.idxmax()+1}:00")
+    if not monthly_sales.empty:
+        col1.metric("Busiest Month", monthly_sales.idxmax(), f"${monthly_sales.max():,.0f} in sales")
+    if not daily_sales.empty:
+        col2.metric("Busiest Day", daily_sales.idxmax())
+    if not hourly_sales.empty:
+        col3.metric("Busiest Hour", f"{hourly_sales.idxmax()}:00 - {hourly_sales.idxmax()+1}:00")
     
-    st.subheader("Your Star Performers")
+    st.subheader("Star Performers")
     col1, col2 = st.columns(2)
-    col1.metric("Top Product", top_product.index[0], f"${top_product.values[0]:,.0f} in sales")
-    col2.metric("Top Country", top_country.index[0], f"${top_country.values[0]:,.0f} in sales")
+    if not top_product.empty:
+        col1.metric("Top Product", top_product.index[0], f"${top_product.values[0]:,.0f} in sales")
+    if not top_country.empty:
+        col2.metric("Top Country", top_country.index[0], f"${top_country.values[0]:,.0f} in sales")
     
     st.subheader("Actionable Advice")
-    st.markdown(f"""
-    - **Seasonal Strategy:** Your sales peak in **{monthly_sales.idxmax()}**. Plan your marketing campaigns and stock levels to take full advantage of this period.
-    - **Weekly Promotions:** **{daily_sales.idxmax()}** is your strongest sales day. Consider running special promotions or flash sales on slower days to even out weekly revenue.
-    - **Focus on Winners:** Your top product is **'{top_product.index[0]}'**. Ensure it's always in stock and consider bundling it with less popular items to boost their sales.
-    - **Market Focus:** **{top_country.index[0]}** is your biggest market. Think about targeted advertising or country-specific deals to further grow this key area.
-    """)
+    if not monthly_sales.empty and not daily_sales.empty and not top_product.empty and not top_country.empty:
+        st.markdown(f"""
+        - **Seasonal Strategy:** Sales peak in **{monthly_sales.idxmax()}**. Plan marketing campaigns and stock levels to take full advantage of this period.
+        - **Weekly Promotions:** **{daily_sales.idxmax()}** is the strongest sales day. Consider running special promotions on slower days to even out weekly revenue.
+        - **Focus on Winners:** Your top product is **'{top_product.index[0]}'**. Ensure it's always in stock and consider bundling it with less popular items to boost their sales.
+        - **Market Focus:** **{top_country.index[0]}** is your biggest market. Think about targeted advertising or country-specific deals to further grow this key area.
+        """)
+    else:
+        st.warning("Not enough data to generate detailed advice.")
