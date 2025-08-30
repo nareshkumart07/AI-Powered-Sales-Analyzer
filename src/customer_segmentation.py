@@ -149,7 +149,6 @@ def display_rfm_insights(rfm_df: pd.DataFrame):
     - **Action:** Launch a targeted 'we miss you' campaign with a special offer to win them back before they're gone for good.
     """)
 
-
 def find_optimal_clusters(df: pd.DataFrame) -> go.Figure:
     """Calculates and plots the elbow curve to find the optimal number of clusters."""
     scaler = StandardScaler()
@@ -349,4 +348,3 @@ def display_kmeans_business_insights(df: pd.DataFrame, cluster_names: Dict):
         st.markdown(f"**Who they are:** {interpretation}")
         st.markdown(f"**How to engage them:** {strategy}")
         st.markdown("---")
-
