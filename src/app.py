@@ -24,10 +24,10 @@ from customer_segmentation import (
 from forecasting import run_forecasting_pipeline, recommend_optimal_price, plot_price_recommendation, display_pricing_insights
 
 # --- APP CONFIGURATION & INITIALIZATION ---
-st.set_page_config(layout="wide", page_title="All-in-One Retail Analysis Dashboard")
+st.set_page_config(layout="wide", page_title="AI Powered Sales Analyzer & Pricing Helper")
 
 def main():
-    st.title('🛒 Smart Sales & Pricing Helper')
+    st.title('AI Powered Sales Analyzer & Pricing Helper')
 
     # --- SESSION STATE INITIALIZATION ---
     if 'data_loaded' not in st.session_state:
@@ -50,7 +50,7 @@ def main():
 
     if not st.session_state.data_loaded:
         st.info("👋 Welcome! Please upload a sales data file to get started.")
-        st.image("https://i.imgur.com/uFLyk3z.png", caption="Use the sidebar on the left to upload your file.")
+        # st.image("https://i.imgur.com/uFLyk3z.png", caption="Use the sidebar on the left to upload your file.")
         return
         
     with st.expander("ℹ️ How to Use This Tool"):
