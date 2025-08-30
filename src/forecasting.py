@@ -482,8 +482,8 @@ def run_forecasting_pipeline(
         st.error("There isn't enough data for this product to make a reliable prediction. Please try a different product or upload more data.")
         return
 
-    model_params = {'input_size': X.shape[2], 'hidden_size': 128, 'num_layers': 2, 'output_size': 1}
-    training_params = {'num_epochs': 50, 'learning_rate': 0.005, 'patience': 10}
+    model_params = {'input_size': X.shape[2], 'hidden_size': 128, 'num_layers': 3, 'output_size': 1}
+    training_params = {'num_epochs': 50, 'learning_rate': 0.01, 'patience': 20}
     
     model = LSTMModel(**model_params) if model_type == 'LSTM' else GRUModel(**model_params)
     
