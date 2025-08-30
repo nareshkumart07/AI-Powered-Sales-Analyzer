@@ -456,7 +456,7 @@ def run_forecasting_pipeline(
         return
 
     model_params = {'input_size': X.shape[2], 'hidden_size': 128, 'num_layers': 2, 'output_size': 1}
-    training_params = {'num_epochs': 50, 'learning_rate': 0.005, 'patience': 10}
+    training_params = {'num_epochs': 100, 'learning_rate': 0.01, 'patience': 15}
     
     model = LSTMModel(**model_params) if model_type == 'LSTM' else GRUModel(**model_params)
     
@@ -491,4 +491,5 @@ def run_forecasting_pipeline(
     st.session_state.seq_length = seq_length
     st.session_state.target_col_idx = target_col_idx
     st.session_state.model_trained = True
+
 
