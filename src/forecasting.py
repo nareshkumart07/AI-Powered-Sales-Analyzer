@@ -68,21 +68,33 @@ def prepare_and_engineer_features_forecast(
         return None
 
     product_df.set_index('InvoiceDate', inplace=True)
-    daily_sales_df = product_df.resample('D')['Quantity'].sum().to_frame()
+    daily_sales_df = product_df.resample('D').agg(
+        Quantity=('Quantity', 'sum'),
+        our_price=('Price', 'mean')
+    )
+    daily_sales_df['our_price'].replace(0, np.nan, inplace=True)
+    daily_sales_df['our_price'] = daily_sales_df['our_price'].ffill().bfill()
+    daily_sales_df.fillna(0, inplace=True) # Fill Quantity NaNs for days with no sales
 
     if competitor_df is not None:
         try:
             competitor_df['Date'] = pd.to_datetime(competitor_df['Date'], errors='coerce')
             competitor_df.set_index('Date', inplace=True)
             daily_comp_prices = competitor_df.resample('D').mean()
-            daily_sales_df = daily_sales_df.merge(daily_comp_prices, left_index=True, right_index=True, how='left')
-            price_cols = ['our_price', 'competitor_A', 'competitor_B', 'competitor_C']
+            
+            daily_sales_df = daily_sales_df.merge(daily_comp_prices, left_index=True, right_index=True, how='left', suffixes=('', '_comp'))
+
+            if 'our_price_comp' in daily_sales_df.columns:
+                daily_sales_df['our_price'] = daily_sales_df['our_price_comp'].fillna(daily_sales_df['our_price'])
+                daily_sales_df.drop(columns=['our_price_comp'], inplace=True)
+            
+            price_cols = ['competitor_A', 'competitor_B', 'competitor_C']
             for col in price_cols:
                 if col in daily_sales_df.columns:
                     daily_sales_df[col].ffill(inplace=True)
                     daily_sales_df[col].bfill(inplace=True)
         except Exception as e:
-            st.warning(f"Could not use the competitor price data. Skipping. Error: {e}")
+            st.warning(f"Could not use the competitor price data. Error: {e}")
 
     if customer_segment_df is not None:
         try:
@@ -455,8 +467,8 @@ def run_forecasting_pipeline(
         st.error("There isn't enough data for this product to make a reliable prediction. Please try a different product or upload more data.")
         return
 
-    model_params = {'input_size': X.shape[2], 'hidden_size': 128, 'num_layers': 3, 'output_size': 1}
-    training_params = {'num_epochs': 100, 'learning_rate': 0.01, 'patience': 25}
+    model_params = {'input_size': X.shape[2], 'hidden_size': 128, 'num_layers': 2, 'output_size': 1}
+    training_params = {'num_epochs': 50, 'learning_rate': 0.005, 'patience': 10}
     
     model = LSTMModel(**model_params) if model_type == 'LSTM' else GRUModel(**model_params)
     
@@ -491,6 +503,4 @@ def run_forecasting_pipeline(
     st.session_state.seq_length = seq_length
     st.session_state.target_col_idx = target_col_idx
     st.session_state.model_trained = True
-
-
 
