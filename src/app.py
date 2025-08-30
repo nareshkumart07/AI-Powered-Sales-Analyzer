@@ -29,13 +29,27 @@ st.set_page_config(layout="wide", page_title="All-in-One Retail Analysis Dashboa
 def main():
     st.title('🛒 Smart Sales & Pricing Helper')
 
-    with st.expander("ℹ️ How to Use This Tool", expanded=True):
+    with st.expander("ℹ️ How to Use This Tool & Data Requirements", expanded=True):
         st.markdown("""
+        ### **Required Data Format**
+        Before you start, make sure your data file (CSV or Excel) contains the following columns with these exact names:
+        - **Invoice**: The unique ID for each transaction (e.g., 536365).
+        - **StockCode**: The unique ID for each product (e.g., 85123A).
+        - **Description**: The name of the product (e.g., WHITE HANGING HEART T-LIGHT HOLDER).
+        - **Quantity**: How many items were bought (e.g., 6).
+        - **InvoiceDate**: The date and time of the sale (e.g., 12/1/2010 8:26).
+        - **Price**: The price of a single item (e.g., 2.55).
+        - **Customer ID**: The unique ID for each customer (e.g., 17850).
+        - **Country**: The country where the sale was made (e.g., United Kingdom).
+        
+        ---
+
+        ### **How to Use the Dashboard**
         **Step 1: Upload Your Data**
         - Use the sidebar to upload your sales data. The tool works best with files that have a full year of sales history.
 
         **Step 2: Check & Prepare Data**
-        - Make sure your file has the required columns listed below.
+        - The tool will automatically check if you have the required columns.
         - Click the **"Prepare My Data"** button to clean it up for analysis.
 
         **Step 3: Get Business Insights**
