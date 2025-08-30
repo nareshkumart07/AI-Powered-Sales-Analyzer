@@ -24,10 +24,25 @@ from customer_segmentation import (
 from forecasting import run_forecasting_pipeline, recommend_optimal_price, plot_price_recommendation, display_pricing_insights
 
 # --- APP CONFIGURATION & INITIALIZATION ---
-st.set_page_config(layout="wide", page_title="AI Powered Sales Analyzer & Pricing Helper")
+st.set_page_config(layout="wide", page_title="All-in-One Retail Analysis Dashboard")
 
 def main():
-    st.title('AI Powered Sales Analyzer & Pricing Helper')
+    st.title('🛒 Smart Sales & Pricing Helper')
+
+    with st.expander("ℹ️ How to Use This Tool", expanded=True):
+        st.markdown("""
+        **Step 1: Upload Your Data**
+        - Use the sidebar to upload your sales data. The tool works best with files that have a full year of sales history.
+
+        **Step 2: Check & Prepare Data**
+        - Make sure your file has the required columns listed below.
+        - Click the **"Prepare My Data"** button to clean it up for analysis.
+
+        **Step 3: Get Business Insights**
+        - **Business Overview:** Get a big-picture look at your sales, top products, and customers.
+        - **Understand Your Customers:** Group your customers to see who your best ones are and who needs attention.
+        - **Future Predictions & Pricing:** Predict future sales for any product and get smart suggestions on the best price to set.
+        """)
 
     # --- SESSION STATE INITIALIZATION ---
     if 'data_loaded' not in st.session_state:
@@ -50,24 +65,9 @@ def main():
 
     if not st.session_state.data_loaded:
         st.info("👋 Welcome! Please upload a sales data file to get started.")
-        # st.image("https://i.imgur.com/uFLyk3z.png", caption="Use the sidebar on the left to upload your file.")
+        st.image("https://i.imgur.com/uFLyk3z.png", caption="Use the sidebar on the left to upload your file.")
         return
         
-    with st.expander("ℹ️ How to Use This Tool"):
-        st.markdown("""
-        **Step 1: Upload Your Data**
-        - Use the sidebar to upload your sales data.
-
-        **Step 2: Check & Prepare Data**
-        - Make sure your file has the required columns listed below.
-        - Click the "Prepare My Data" button to clean it up for analysis.
-
-        **Step 3: Get Business Insights**
-        - **Business Overview:** Get a big-picture look at your sales, top products, and customers.
-        - **Understand Your Customers:** Group your customers to see who your best ones are and who needs attention.
-        - **Future Predictions & Pricing:** Predict future sales for any product and get smart suggestions on the best price to set.
-        """)
-
     st.header("Step 1: Your Data at a Glance")
     st.dataframe(st.session_state.raw_df.head())
     st.markdown("---")
@@ -301,3 +301,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
