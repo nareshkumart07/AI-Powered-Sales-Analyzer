@@ -1,6 +1,6 @@
 """
 This module contains all functions for the Exploratory Data Analysis (EDA)
-section of the sales dashboard.
+section of the Streamlit application.
 """
 import streamlit as st
 import pandas as pd
@@ -173,3 +173,4 @@ def display_eda_insights(df: pd.DataFrame):
     - **Focus on Winners:** Your top product is **'{top_product.index[0]}'**. Ensure it's always in stock and consider bundling it with less popular items to boost their sales.
     - **Market Focus:** **{top_country.index[0]}** is your biggest market. Think about targeted advertising or country-specific deals to further grow this key area.
     """)
+
