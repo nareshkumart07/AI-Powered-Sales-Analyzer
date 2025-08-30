@@ -1,31 +1,32 @@
 """
-This module contains all functions related to data loading,
-cleaning, and preprocessing for the sales dashboard.
+This module contains all functions for loading, cleaning,
+and preparing the retail data for analysis.
 """
 import streamlit as st
 import pandas as pd
+import numpy as np
 from typing import Optional, List, Any
 
-# --- DATA LOADING ---
 @st.cache_data
 def load_data(uploaded_file: Any) -> Optional[pd.DataFrame]:
     """
     Loads data from a file uploaded via Streamlit.
     Supports CSV and Excel formats.
+    Ensures 'StockCode' is treated as a string.
     """
     if uploaded_file is None:
         return None
     try:
+        # Define the data type for the StockCode column to prevent inference errors
+        dtype_spec = {'StockCode': str, 'Customer ID': str}
         if uploaded_file.name.endswith('.csv'):
-            df = pd.read_csv(uploaded_file, encoding='latin1')
+            df = pd.read_csv(uploaded_file, encoding='latin1', dtype=dtype_spec)
         else:
-            df = pd.read_excel(uploaded_file, engine='openpyxl')
+            df = pd.read_excel(uploaded_file, engine='openpyxl', dtype=dtype_spec)
         return df
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return None
-
-# --- DATA CLEANING & PREPROCESSING FUNCTIONS ---
 
 def handle_negative_values(df: pd.DataFrame) -> pd.DataFrame:
     """Removes rows with negative Quantity or zero Price."""
@@ -74,3 +75,4 @@ def preprocess_pipeline(df: pd.DataFrame) -> pd.DataFrame:
         st.write("Step 4: Creating new data points for analysis...")
         df = engineer_features(df)
     return df
+
