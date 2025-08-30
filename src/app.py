@@ -21,7 +21,8 @@ from customer_segmentation import (
     plot_kmeans_pie_charts, plot_kmeans_sales_by_segment, plot_kmeans_bar_charts,
     display_kmeans_business_insights
 )
-from forecasting import run_forecasting_pipeline, recommend_optimal_price, plot_price_recommendation, display_pricing_insights
+from forecasting import run_forecasting_pipeline
+from dynamic_pricing import recommend_optimal_price, plot_price_recommendation, display_pricing_insights
 
 # --- APP CONFIGURATION & INITIALIZATION ---
 st.set_page_config(layout="wide", page_title="All-in-One Retail Analysis Dashboard")
@@ -304,11 +305,12 @@ def main():
                             num_days_to_simulate=pricing_forecast_days
                         )
                         
-                        price_fig = plot_price_recommendation(price_results_df, optimal_row, pricing_forecast_days)
-                        st.plotly_chart(price_fig, use_container_width=True)
-                        
-                        current_price = st.session_state.daily_sales_df['our_price'].iloc[-1]
-                        display_pricing_insights(optimal_row, current_price, pricing_forecast_days, price_results_df)
+                        if price_results_df is not None:
+                            price_fig = plot_price_recommendation(price_results_df, optimal_row, pricing_forecast_days)
+                            st.plotly_chart(price_fig, use_container_width=True)
+                            
+                            current_price = st.session_state.daily_sales_df['our_price'].iloc[-1]
+                            display_pricing_insights(optimal_row, current_price, pricing_forecast_days, price_results_df)
             else:
                 st.warning("Dynamic pricing requires price data. The 'our_price' column could not be found.")
 
