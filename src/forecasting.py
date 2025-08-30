@@ -16,7 +16,7 @@ import holidays
 from typing import Optional, Dict, Tuple
 
 # Import shared resources
-from utilities import COLOR_PALETTE
+from utils import COLOR_PALETTE
 
 # --- MODEL ARCHITECTURES ---
 class LSTMModel(nn.Module):
@@ -225,36 +225,38 @@ def generate_future_forecasts(model: nn.Module, daily_df: pd.DataFrame, scaler: 
     future_df.set_index('Date', inplace=True)
     return future_df
 
-def plot_simplified_forecast(daily_df: pd.DataFrame, future_df: pd.DataFrame, results_df: pd.DataFrame, product_stock_code: str, metrics: Dict) -> go.Figure:
-    """Creates a simplified forecast chart with a confidence interval."""
+def plot_full_forecast_visual(daily_df: pd.DataFrame, future_df: pd.DataFrame, results_df: pd.DataFrame, product_stock_code: str) -> go.Figure:
+    """Creates a comprehensive forecast chart showing historical, actual, predicted, and future sales."""
     fig = go.Figure()
 
-    # Historical Data
+    # Historical Training Data
+    train_end_index = results_df.index[0]
+    train_df = daily_df[daily_df.index < train_end_index]
     fig.add_trace(go.Scatter(
-        x=daily_df.index, y=daily_df['Quantity'], name='Past Sales',
+        x=train_df.index, y=train_df['Quantity'], name='Historical Sales',
         mode='lines', line=dict(color='lightgrey', width=1.5)
+    ))
+
+    # Actual Sales on Test Data
+    fig.add_trace(go.Scatter(
+        x=results_df.index, y=results_df['Actual'], name='Actual Sales',
+        mode='lines', line=dict(color=COLOR_PALETTE['primary'], width=2)
+    ))
+
+    # Predicted Sales on Test Data
+    fig.add_trace(go.Scatter(
+        x=results_df.index, y=results_df['Predicted'], name='Predicted Sales',
+        mode='lines', line=dict(color=COLOR_PALETTE['danger'], dash='dash', width=2)
     ))
 
     # Future Forecast
     fig.add_trace(go.Scatter(
-        x=future_df.index, y=future_df['Future_Forecast'], name='Future Prediction',
-        mode='lines', line=dict(color=COLOR_PALETTE['success'], width=3)
-    ))
-
-    # Confidence Interval
-    mae = metrics['MAE']
-    fig.add_trace(go.Scatter(
-        x=future_df.index, y=future_df['Future_Forecast'] + mae,
-        fill=None, mode='lines', line_color='rgba(44, 160, 44, 0.2)', showlegend=False
-    ))
-    fig.add_trace(go.Scatter(
-        x=future_df.index, y=future_df['Future_Forecast'] - mae,
-        fill='tonexty', mode='lines', line_color='rgba(44, 160, 44, 0.2)',
-        name='Possible Range'
+        x=future_df.index, y=future_df['Future_Forecast'], name='Future Forecast',
+        mode='lines', line=dict(color=COLOR_PALETTE['success'], dash='dot', width=3)
     ))
 
     fig.update_layout(
-        title=f'<b>What could sales look like for Product {product_stock_code}?</b>',
+        title=f'<b>Sales Analysis & Forecast for Product {product_stock_code}</b>',
         template='plotly_white',
         yaxis_title='Items Sold per Day',
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
@@ -461,8 +463,8 @@ def run_forecasting_pipeline(
         st.error("There isn't enough data for this product to make a reliable prediction. Please try a different product or upload more data.")
         return
 
-    model_params = {'input_size': X.shape[2], 'hidden_size': 128, 'num_layers': 3, 'output_size': 1}
-    training_params = {'num_epochs': 50, 'learning_rate': 0.01, 'patience': 15}
+    model_params = {'input_size': X.shape[2], 'hidden_size': 128, 'num_layers': 2, 'output_size': 1}
+    training_params = {'num_epochs': 50, 'learning_rate': 0.005, 'patience': 10}
     
     model = LSTMModel(**model_params) if model_type == 'LSTM' else GRUModel(**model_params)
     
@@ -478,7 +480,7 @@ def run_forecasting_pipeline(
     st.subheader(f"{model_name} Performance")
     st.metric("Average Prediction Error", f"± {metrics['MAE']:.2f} items / day")
     
-    st.plotly_chart(plot_simplified_forecast(daily_sales_df, future_df, results_df, product_stock_code, metrics), use_container_width=True)
+    st.plotly_chart(plot_full_forecast_visual(daily_sales_df, future_df, results_df, product_stock_code), use_container_width=True)
     
     st.subheader("Forecast Breakdown")
     fig_pie, fig_bar = plot_forecast_breakdown(future_df, daily_sales_df)
