@@ -310,7 +310,7 @@ def main():
                         current_price = st.session_state.daily_sales_df['our_price'].iloc[-1]
                         display_pricing_insights(optimal_row, current_price, pricing_forecast_days, price_results_df)
             else:
-                st.warning("To get price suggestions, please upload the 'Competitor Prices' file. Make sure it has a column named 'our_price'.")
+                st.warning("Dynamic pricing requires price data. The 'our_price' column could not be found.")
 
 
 if __name__ == '__main__':
