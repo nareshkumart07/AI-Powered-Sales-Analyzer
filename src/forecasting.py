@@ -16,7 +16,7 @@ import holidays
 from typing import Optional, Dict, Tuple
 
 # Import shared resources
-from utils import COLOR_PALETTE
+from utilities import COLOR_PALETTE
 
 # --- MODEL ARCHITECTURES ---
 class LSTMModel(nn.Module):
@@ -499,3 +499,4 @@ def run_forecasting_pipeline(
     st.session_state.seq_length = seq_length
     st.session_state.target_col_idx = target_col_idx
     st.session_state.model_trained = True
+
