@@ -19,16 +19,16 @@ from customer_segmentation import (
     plot_rfm_distribution, display_rfm_insights, find_optimal_clusters,
     perform_kmeans_clustering, get_cluster_names, generate_kmeans_summary_table,
     plot_kmeans_pie_charts, plot_kmeans_sales_by_segment, plot_kmeans_bar_charts,
-    display_kmeans_business_insights
+    display_kmeans_business_insights, merge_data_with_segments
 )
 from forecasting import run_forecasting_pipeline
 from dynamic_pricing import recommend_optimal_price, plot_price_recommendation, display_pricing_insights
 
 # --- APP CONFIGURATION & INITIALIZATION ---
-st.set_page_config(layout="wide", page_title="AI Powered Sales Analyzer & Sales Forecasting")
+st.set_page_config(layout="wide", page_title="AI Powered 🛒 Sales Analyzer & Forecasting")
 
 def main():
-    st.title('AI Powered 🛒 Sales Analyzer & Sales Forecasting')
+    st.title('AI Powered 🛒 Sales Analyzer & Forecasting Tool ')
 
     with st.expander("ℹ️ How to Use This Tool & Data Requirements", expanded=True):
         st.markdown("""
@@ -186,7 +186,6 @@ def main():
                 st.plotly_chart(plot_daily_sales(product_df, title_prefix=f"{selected_product}: "), use_container_width=True)
                 st.plotly_chart(plot_geographical_sales(product_df, title_prefix=f"{selected_product}: "), use_container_width=True)
                 
-                # Display insights for the selected product
                 display_eda_insights(product_df, title_prefix=f"for {selected_product}")
 
     with tab2:
@@ -206,6 +205,10 @@ def main():
                     summary_df = generate_business_summary(rfm_final)
                     st.dataframe(summary_df)
                     
+                    st.subheader("Your Data with Segments Added")
+                    df_with_segments = merge_data_with_segments(st.session_state.df_cleaned, rfm_final, 'Segment')
+                    st.dataframe(df_with_segments.head())
+
                     st.plotly_chart(plot_rfm_pie_charts(rfm_final), use_container_width=True)
                     st.plotly_chart(plot_rfm_sales_by_segment(rfm_final), use_container_width=True)
                     st.plotly_chart(plot_rfm_distribution(rfm_final), use_container_width=True)
@@ -238,6 +241,10 @@ def main():
                     st.subheader("Smart Group Summary")
                     kmeans_summary_df = generate_kmeans_summary_table(kmeans_clustered)
                     st.dataframe(kmeans_summary_df)
+                    
+                    st.subheader("Your Data with Segments Added")
+                    df_with_segments_kmeans = merge_data_with_segments(st.session_state.df_cleaned, kmeans_clustered, 'Cluster_Name')
+                    st.dataframe(df_with_segments_kmeans.head())
 
                     pie_fig = plot_kmeans_pie_charts(kmeans_clustered)
                     st.plotly_chart(pie_fig, use_container_width=True)
