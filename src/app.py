@@ -25,10 +25,10 @@ from forecasting import run_forecasting_pipeline
 from dynamic_pricing import recommend_optimal_price, plot_price_recommendation, display_pricing_insights
 
 # --- APP CONFIGURATION & INITIALIZATION ---
-st.set_page_config(layout="wide", page_title="All-in-One Retail Analysis Dashboard")
+st.set_page_config(layout="wide", page_title="AI Powered Sales Analyzer & Sales Forecasting")
 
 def main():
-    st.title('🛒 Smart Sales & Pricing Helper')
+    st.title('AI Powered 🛒 Sales Analyzer & Sales Forecasting')
 
     with st.expander("ℹ️ How to Use This Tool & Data Requirements", expanded=True):
         st.markdown("""
@@ -80,7 +80,7 @@ def main():
 
     if not st.session_state.data_loaded:
         st.info("👋 Welcome! Please upload a sales data file to get started.")
-        st.image("https://i.imgur.com/uFLyk3z.png", caption="Use the sidebar on the left to upload your file.")
+        # st.image("https://i.imgur.com/uFLyk3z.png", caption="Use the sidebar on the left to upload your file.")
         return
         
     st.header("Step 1: Your Data at a Glance")
