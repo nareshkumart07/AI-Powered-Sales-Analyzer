@@ -80,7 +80,7 @@ def prepare_and_engineer_features_forecast(
     if competitor_df is not None:
         try:
             competitor_df['InvoiceDate'] = pd.to_datetime(competitor_df['InvoiceDate'], errors='coerce')
-            competitor_df.set_index('Date', inplace=True)
+            competitor_df.set_index('InvoiceDate', inplace=True)
             daily_comp_prices = competitor_df.resample('D').mean()
             
             daily_sales_df = daily_sales_df.merge(daily_comp_prices, left_index=True, right_index=True, how='left', suffixes=('', '_comp'))
@@ -100,7 +100,7 @@ def prepare_and_engineer_features_forecast(
     if customer_segment_df is not None:
         try:
             customer_segment_df['InvoiceDate'] = pd.to_datetime(customer_segment_df['InvoiceDate'], errors='coerce')
-            daily_segment_sales = customer_segment_df.pivot_table(index='Date', columns='Segment', values='Quantity', aggfunc='sum')
+            daily_segment_sales = customer_segment_df.pivot_table(index='InvoiceDate', columns='Segment', values='Quantity', aggfunc='sum')
             daily_segment_sales = daily_segment_sales.resample('D').sum()
             daily_sales_df = daily_sales_df.merge(daily_segment_sales, left_index=True, right_index=True, how='left')
             daily_sales_df[daily_segment_sales.columns] = daily_sales_df[daily_segment_sales.columns].fillna(0)
@@ -391,5 +391,6 @@ def run_forecasting_pipeline(
     st.session_state.seq_length = seq_length
     st.session_state.target_col_idx = target_col_idx
     st.session_state.model_trained = True
+
 
 
