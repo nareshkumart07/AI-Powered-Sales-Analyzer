@@ -25,10 +25,10 @@ from forecasting import run_forecasting_pipeline
 from dynamic_pricing import recommend_optimal_price, plot_price_recommendation, display_pricing_insights
 
 # --- APP CONFIGURATION & INITIALIZATION ---
-st.set_page_config(layout="wide", page_title="AI Powered 🛒 Sales Analyzer & Forecasting")
+st.set_page_config(layout="wide", page_title="AI Powered 🛒 Sales Analyzer & Forecasting Tool")
 
 def main():
-    st.title('AI Powered 🛒 Sales Analyzer & Forecasting Tool ')
+    st.title('AI Powered 🛒 Sales Analyzer & Forecasting Tool')
 
     with st.expander("ℹ️ How to Use This Tool & Data Requirements", expanded=True):
         st.markdown("""
@@ -266,11 +266,15 @@ def main():
         forecast_days = st.number_input("How many days do you want to predict into the future?", min_value=7, max_value=90, value=30, step=7)
         
         st.markdown("**(Optional) Upload these files to make predictions even better:**")
+        st.info("""
+        - **Competitor Prices File:** Must have a `Date` column and price columns like `our_price`, `competitor_A`, etc.
+        - **Customer Segments File:** Must have `Date`, `Segment`, and `Quantity` columns.
+        """)
         col1_upload, col2_upload = st.columns(2)
         with col1_upload:
-            competitor_file = st.file_uploader("Upload Competitor Prices (CSV)", type=['csv'], key="competitor", help="Must have a 'Date' column and price columns like 'our_price', 'competitor_A', etc.")
+            competitor_file = st.file_uploader("Upload Competitor Prices (CSV)", type=['csv'], key="competitor")
         with col2_upload:
-            segment_file = st.file_uploader("Upload Customer Group Sales (CSV)", type=['csv'], key="segment", help="Must have 'Date', 'Segment', and 'Quantity' columns.")
+            segment_file = st.file_uploader("Upload Customer Group Sales (CSV)", type=['csv'], key="segment")
 
         competitor_data = load_data(competitor_file) if competitor_file else None
         segment_data = load_data(segment_file) if segment_file else None
