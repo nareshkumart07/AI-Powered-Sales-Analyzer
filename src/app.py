@@ -204,7 +204,13 @@ def main():
                     st.subheader("Segment Summary")
                     summary_df = generate_business_summary(rfm_final)
                     st.dataframe(summary_df)
-                    
+                    st.download_button(
+                        label="Download Simple Segment Data (CSV)",
+                        data=summary_df.to_csv(index=False).encode('utf-8'),
+                        file_name='simple_customer_segments.csv',
+                        mime='text/csv',
+                    )
+
                     st.subheader("Your Data with Segments Added")
                     df_with_segments = merge_data_with_segments(st.session_state.df_cleaned, rfm_final, 'Segment')
                     st.dataframe(df_with_segments.head())
@@ -241,6 +247,12 @@ def main():
                     st.subheader("Smart Group Summary")
                     kmeans_summary_df = generate_kmeans_summary_table(kmeans_clustered)
                     st.dataframe(kmeans_summary_df)
+                    st.download_button(
+                        label="Download Smart Segment Data (CSV)",
+                        data=kmeans_summary_df.to_csv(index=False).encode('utf-8'),
+                        file_name='smart_customer_segments.csv',
+                        mime='text/csv',
+                    )
                     
                     st.subheader("Your Data with Segments Added")
                     df_with_segments_kmeans = merge_data_with_segments(st.session_state.df_cleaned, kmeans_clustered, 'Cluster_Name')
