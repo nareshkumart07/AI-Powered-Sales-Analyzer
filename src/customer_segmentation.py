@@ -57,6 +57,17 @@ def assign_business_actions(rfm_df: pd.DataFrame) -> pd.DataFrame:
     rfm_df["Action"] = rfm_df["Segment"].map(business_actions)
     return rfm_df
 
+def merge_data_with_segments(df_cleaned: pd.DataFrame, segmented_df: pd.DataFrame, segment_col_name: str) -> pd.DataFrame:
+    """Merges the original cleaned data with the segmentation results."""
+    if segmented_df.index.name == 'Customer ID':
+        segmented_df = segmented_df.reset_index()
+
+    segments_to_merge = segmented_df[['Customer ID', segment_col_name]]
+    df_with_segments = pd.merge(df_cleaned, segments_to_merge, on='Customer ID', how='left')
+    df_with_segments[segment_col_name].fillna('Unknown Customer', inplace=True)
+    
+    return df_with_segments
+
 def plot_rfm_distribution(rfm_df: pd.DataFrame) -> go.Figure:
     """Creates a bar chart showing the distribution of customers across RFM segments."""
     segment_counts = rfm_df['Segment'].value_counts().reset_index()
@@ -348,3 +359,4 @@ def display_kmeans_business_insights(df: pd.DataFrame, cluster_names: Dict):
         st.markdown(f"**Who they are:** {interpretation}")
         st.markdown(f"**How to engage them:** {strategy}")
         st.markdown("---")
+
