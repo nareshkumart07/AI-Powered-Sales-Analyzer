@@ -1,359 +1,416 @@
 """
-This is the main application file for the Streamlit Sales & Pricing Helper.
-To run this app, use the command: streamlit run app.py
+This script creates a comprehensive, interactive Streamlit dashboard for 
+Exploratory Data Analysis (EDA), RFM analysis with K-Means clustering, 
+Time-Series Sales Forecasting, and Dynamic Pricing recommendations.
+
+To run this application:
+1. Make sure you have the required libraries installed:
+   pip install pandas openpyxl plotly streamlit scikit-learn seaborn squarify kaleido torch holidays statsmodels
+2. Save this script as a single Python file (e.g., app.py).
+3. Run this script from your terminal: streamlit run app.py
 """
+
+# --- 0. LIBRARY IMPORTS ---
 import streamlit as st
 import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+import seaborn as sns
+import squarify
+from typing import Optional, Dict, Tuple, List, Any
+import os
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.cluster import KMeans
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+import random
+import torch
+import torch.nn as nn
+from torch.utils.data import TensorDataset, DataLoader
+import holidays
 
-# Import modules
-from data_processing import load_data, preprocess_pipeline
-from eda import (
-    plot_monthly_sales, plot_daily_sales, plot_hourly_sales,
-    plot_top_products, plot_geographical_sales, plot_worst_performers,
-    plot_new_vs_returning_customers, plot_average_order_value,
-    analyze_market_basket, display_eda_insights
-)
-from customer_segmentation import (
-    calculate_rfm_metrics, segment_customers, assign_business_actions,
-    generate_business_summary, plot_rfm_pie_charts, plot_rfm_sales_by_segment,
-    plot_rfm_distribution, display_rfm_insights, find_optimal_clusters,
-    perform_kmeans_clustering, get_cluster_names, generate_kmeans_summary_table,
-    plot_kmeans_pie_charts, plot_kmeans_sales_by_segment, plot_kmeans_bar_charts,
-    display_kmeans_business_insights, merge_data_with_segments
-)
-from forecasting import run_forecasting_pipeline
-from dynamic_pricing import recommend_optimal_price, plot_price_recommendation, display_pricing_insights
+# --- 1. APP CONFIGURATION & INITIALIZATION ---
+st.set_page_config(layout="wide", page_title="All-in-One Retail Analysis Dashboard")
 
-# --- APP CONFIGURATION & INITIALIZATION ---
-st.set_page_config(layout="wide", page_title="AI Powered 🛒 Sales Analyzer & Forecasting Tool")
+# --- 1a. STYLING & COLOR PALETTE ---
+COLOR_PALETTE = {
+    "primary": "#1f77b4",    # Muted blue
+    "secondary": "#ff7f0e",  # Safety orange
+    "success": "#2ca02c",    # Cooked asparagus green
+    "danger": "#d62728",     # Brick red
+    "info": "#9467bd",       # Muted purple
+    "light": "#aec7e8",      # Light blue
+    "dark": "#2c3e50"        # Dark slate gray
+}
 
-def main():
-    st.title('AI Powered 🛒 Sales Analyzer & Forecasting Tool')
+# --- 2. DATA LOADING ---
+@st.cache_data
+def load_data(uploaded_file: Any) -> Optional[pd.DataFrame]:
+    """
+    Loads data from a file uploaded via Streamlit.
+    Supports CSV and Excel formats.
+    """
+    if uploaded_file is None:
+        return None
+    try:
+        if uploaded_file.name.endswith('.csv'):
+            df = pd.read_csv(uploaded_file, encoding='latin1')
+        else:
+            df = pd.read_excel(uploaded_file, engine='openpyxl')
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return None
 
-    with st.expander("ℹ️ How to Use This Tool & Data Requirements", expanded=True):
-        st.markdown("""
-        ### **Required Data Format**
-        Before you start, make sure your data file (CSV or Excel) contains the following columns with these exact names:
-        - **Invoice**: The unique ID for each transaction (e.g., 536365).
-        - **StockCode**: The unique ID for each product (e.g., 85123A).
-        - **Description**: The name of the product (e.g., WHITE HANGING HEART T-LIGHT HOLDER).
-        - **Quantity**: How many items were bought (e.g., 6).
-        - **InvoiceDate**: The date and time of the sale (e.g., 12/1/2010 8:26).
-        - **Price**: The price of a single item (e.g., 2.55).
-        - **Customer ID**: The unique ID for each customer (e.g., 17850).
-        - **Country**: The country where the sale was made (e.g., United Kingdom).
-        
-        ---
+# --- 3. DATA CLEANING & PREPROCESSING FUNCTIONS ---
 
-        ### **How to Use the Dashboard**
-        **Step 1: Upload Your Data**
-        - Use the sidebar to upload your sales data. The tool works best with files that have a full year of sales history.
+def handle_negative_values(df: pd.DataFrame) -> pd.DataFrame:
+    """Removes rows with negative Quantity or zero Price."""
+    return df[(df['Quantity'] > 0) & (df['Price'] > 0)].copy()
 
-        **Step 2: Check & Prepare Data**
-        - The tool will automatically check if you have the required columns.
-        - Click the **"Prepare My Data"** button to clean it up for analysis.
+def remove_outliers_iqr(df: pd.DataFrame, columns: List[str]) -> pd.DataFrame:
+    """Removes outliers from specified columns using the IQR method."""
+    df_clean = df.copy()
+    for col in columns:
+        Q1 = df_clean[col].quantile(0.25)
+        Q3 = df_clean[col].quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - 1.5 * IQR
+        upper_bound = Q3 + 1.5 * IQR
+        df_clean = df_clean[(df_clean[col] >= lower_bound) & (df_clean[col] <= upper_bound)]
+    return df_clean
 
-        **Step 3: Get Business Insights**
-        - **Business Overview:** Get a big-picture look at your sales, top products, and customers.
-        - **Understand Your Customers:** Group your customers to see who your best ones are and who needs attention.
-        - **Future Predictions & Pricing:** Predict future sales for any product and get smart suggestions on the best price to set.
-        """)
+def impute_missing_values(df: pd.DataFrame) -> pd.DataFrame:
+    """Handles missing values for 'Customer ID' and 'Description'."""
+    df_imputed = df.copy()
+    df_imputed['Customer ID'].fillna('Unknown', inplace=True)
+    stockcode_map = df_imputed.dropna(subset=['Description']).set_index('StockCode')['Description'].to_dict()
+    df_imputed['Description'] = df_imputed['Description'].fillna(df_imputed['StockCode'].map(stockcode_map))
+    df_imputed['Description'].fillna('Unknown', inplace=True)
+    return df_imputed
 
-    # --- SESSION STATE INITIALIZATION ---
-    if 'data_loaded' not in st.session_state:
-        st.session_state.data_loaded = False
-    if 'df_cleaned' not in st.session_state:
-        st.session_state.df_cleaned = None
-    if 'model_trained' not in st.session_state:
-        st.session_state.model_trained = False
+def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Creates new features like Revenue and time-based attributes."""
+    df_featured = df.copy()
+    df_featured['Revenue'] = df_featured['Quantity'] * df_featured['Price']
+    df_featured['InvoiceDate'] = pd.to_datetime(df_featured['InvoiceDate'])
+    df_featured['InvoiceYearMonth'] = df_featured['InvoiceDate'].dt.strftime('%Y-%m')
+    df_featured['InvoiceWeekday'] = df_featured['InvoiceDate'].dt.day_name()
+    df_featured['InvoiceHour'] = df_featured['InvoiceDate'].dt.hour
+    return df_featured
 
-    # --- SIDEBAR & FILE UPLOAD ---
-    with st.sidebar:
-        st.sidebar.title("Controls")
-        st.header("1. Upload Your Data")
-        uploaded_file = st.file_uploader("Upload your sales data file (Excel or CSV)", type=['xlsx', 'xls', 'csv'])
-        if uploaded_file:
-            st.session_state.raw_df = load_data(uploaded_file)
-            if st.session_state.raw_df is not None:
-                st.session_state.data_loaded = True
-                st.success("Data loaded successfully!")
+def preprocess_pipeline(df: pd.DataFrame) -> pd.DataFrame:
+    """Orchestrates the entire data preprocessing workflow."""
+    with st.spinner("Getting your data ready for analysis..."):
+        st.write("Step 1: Removing returns and invalid entries...")
+        df = handle_negative_values(df)
+        st.write("Step 2: Removing extreme, unusual values...")
+        df = remove_outliers_iqr(df, ['Quantity', 'Price'])
+        st.write("Step 3: Filling in missing information...")
+        df = impute_missing_values(df)
+        st.write("Step 4: Creating new data points for analysis...")
+        df = engineer_features(df)
+    return df
 
-    if not st.session_state.data_loaded:
-        st.info("👋 Welcome! Please upload a sales data file to get started.")
-        # st.image("https://i.imgur.com/uFLyk3z.png", caption="Use the sidebar on the left to upload your file.")
-        return
-        
-    st.header("Step 1: Your Data at a Glance")
-    st.dataframe(st.session_state.raw_df.head())
-    st.markdown("---")
+# --- 4. EDA ANALYSIS & PLOTTING FUNCTIONS ---
 
-    st.header("Step 2: Check & Prepare Your Data")
-    with st.container(border=True):
-        st.subheader("Does your data have the right columns?")
-        st.markdown("For this tool to work, your file needs these columns. The names must match exactly.")
-        
-        required_cols = {
-            'Invoice': 'The unique ID for each transaction (e.g., 536365).',
-            'StockCode': 'The unique ID for each product (e.g., 85123A).',
-            'Description': 'The name of the product (e.g., WHITE HANGING HEART T-LIGHT HOLDER).',
-            'Quantity': 'How many items were bought in the transaction (e.g., 6).',
-            'InvoiceDate': 'The date and time of the sale (e.g., 12/1/2010 8:26).',
-            'Price': 'The price of a single item (e.g., 2.55).',
-            'Customer ID': 'The unique ID for each customer (e.g., 17850).',
-            'Country': 'The country where the sale was made (e.g., United Kingdom).'
-        }
-        
-        cols_in_data = st.session_state.raw_df.columns
-        all_cols_present = True
-        
-        for col, desc in required_cols.items():
-            if col in cols_in_data:
-                st.markdown(f"✅ **{col}**: *{desc}*")
-            else:
-                st.markdown(f"❌ **{col}**: *{desc}* --- **MISSING!**")
-                all_cols_present = False
-        
-        if not all_cols_present:
-            st.error("Your file is missing one or more required columns. Please check your file and upload it again.")
-            return
+def plot_monthly_sales(df: pd.DataFrame, title_prefix: str = "") -> go.Figure:
+    """Creates a bar chart for monthly sales."""
+    monthly_sales = df.groupby('InvoiceYearMonth')['Revenue'].sum().reset_index()
+    fig = px.bar(
+        monthly_sales, x='InvoiceYearMonth', y='Revenue',
+        title=f'<b>{title_prefix}Monthly Sales Trend</b>',
+        labels={'InvoiceYearMonth': 'Month', 'Revenue': 'Total Sales'},
+        color_discrete_sequence=[COLOR_PALETTE['primary']]
+    )
+    fig.update_layout(template='plotly_white')
+    return fig
 
-    if st.button("Prepare My Data", type="primary"):
-        st.session_state.df_cleaned = preprocess_pipeline(st.session_state.raw_df)
-        st.success("Your data is clean and ready for analysis!")
-        st.dataframe(st.session_state.df_cleaned.head())
+def plot_daily_sales(df: pd.DataFrame, title_prefix: str = "") -> go.Figure:
+    """Creates a bar chart for daily sales."""
+    daily_sales = df.groupby('InvoiceWeekday')['Revenue'].sum().reset_index()
+    weekday_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    daily_sales['InvoiceWeekday'] = pd.Categorical(daily_sales['InvoiceWeekday'], categories=weekday_order, ordered=True)
+    daily_sales = daily_sales.sort_values('InvoiceWeekday')
+    fig = px.bar(
+        daily_sales, x='InvoiceWeekday', y='Revenue',
+        title=f'<b>{title_prefix}Sales by Day of the Week</b>',
+        labels={'InvoiceWeekday': 'Day of the Week', 'Revenue': 'Total Sales'},
+        color_discrete_sequence=[COLOR_PALETTE['secondary']]
+    )
+    fig.update_layout(template='plotly_white')
+    return fig
+
+def plot_hourly_sales(df: pd.DataFrame, title_prefix: str = "") -> go.Figure:
+    """Creates a bar chart for hourly sales."""
+    hourly_sales = df.groupby('InvoiceHour')['Revenue'].sum().reset_index()
+    fig = px.bar(
+        hourly_sales, x='InvoiceHour', y='Revenue',
+        title=f'<b>{title_prefix}Sales by Hour of the Day</b>',
+        labels={'InvoiceHour': 'Hour of the Day (24h format)', 'Revenue': 'Total Sales'},
+        color_discrete_sequence=[COLOR_PALETTE['info']]
+    )
+    fig.update_layout(template='plotly_white')
+    return fig
+
+def plot_geographical_sales(df: pd.DataFrame, title_prefix: str = "") -> go.Figure:
+    """Creates a choropleth map of sales by country."""
+    country_sales = df.groupby('Country')['Revenue'].sum().reset_index()
+    fig = px.choropleth(
+        country_sales,
+        locations="Country",
+        locationmode='country names',
+        color="Revenue",
+        hover_name="Country",
+        color_continuous_scale=px.colors.sequential.Blues,
+        title=f'<b>{title_prefix}Geographical Sales Distribution</b>'
+    )
+    return fig
+
+def plot_top_products(df: pd.DataFrame, top_n: int = 10) -> go.Figure:
+    """Creates a horizontal bar chart of top N products by revenue."""
+    top_products = df.groupby('Description')['Revenue'].sum().nlargest(top_n).sort_values(ascending=True)
+    fig = px.bar(
+        top_products,
+        x=top_products.values,
+        y=top_products.index,
+        orientation='h',
+        title=f'<b>What are your {top_n} best-selling products?</b>',
+        labels={'x': 'Total Sales', 'y': 'Product'},
+        color_discrete_sequence=[COLOR_PALETTE['success']]
+    )
+    return fig
+
+def plot_worst_performers(df: pd.DataFrame, bottom_n: int = 10) -> go.Figure:
+    """Creates horizontal bar charts of bottom N products and countries by revenue."""
+    worst_products = df[df['Description'] != 'Unknown'].groupby('Description')['Revenue'].sum().nsmallest(bottom_n).sort_values(ascending=False)
+    worst_countries = df.groupby('Country')['Revenue'].sum().nsmallest(bottom_n).sort_values(ascending=False)
     
-    st.markdown("---")
+    fig = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=(f"<b>Bottom {bottom_n} Products by Sales</b>", f"<b>Bottom {bottom_n} Countries by Sales</b>")
+    )
 
-    if st.session_state.df_cleaned is None:
-        st.warning("Please click the 'Prepare My Data' button to continue.")
-        return
+    fig.add_trace(go.Bar(
+        x=worst_products.values, y=worst_products.index, orientation='h',
+        marker_color=COLOR_PALETTE['danger'], name='Worst Products'
+    ), row=1, col=1)
 
-    # --- MAIN ANALYSIS TABS ---
-    tab1, tab2, tab3 = st.tabs(["📊 Business Overview", "👥 Understand Your Customers", "🔮 Future Predictions & Pricing"])
+    fig.add_trace(go.Bar(
+        x=worst_countries.values, y=worst_countries.index, orientation='h',
+        marker_color=COLOR_PALETTE['info'], name='Worst Countries'
+    ), row=1, col=2)
+    
+    fig.update_layout(title_text=f'<b>Which products and countries are underperforming?</b>', showlegend=False, template='plotly_white')
+    return fig
 
-    with tab1:
-        st.header("A Big-Picture Look at Your Business")
-        st.markdown("Click the buttons below to explore different parts of your business.")
+def plot_new_vs_returning_customers(df: pd.DataFrame) -> go.Figure:
+    """Creates a pie chart showing revenue from new vs. returning customers."""
+    known_customers_df = df[df['Customer ID'] != 'Unknown']
+    invoice_counts = known_customers_df.groupby('Customer ID')['Invoice'].nunique().reset_index()
+    invoice_counts.columns = ['Customer ID', 'InvoiceCount']
+    df_with_counts = pd.merge(known_customers_df, invoice_counts, on='Customer ID')
+    df_with_counts['Customer_Category'] = np.where(df_with_counts['InvoiceCount'] == 1, 'New Customers', 'Returning Customers')
+    revenue_summary = df_with_counts.groupby('Customer_Category')['Revenue'].sum().reset_index()
+    fig = px.pie(
+        revenue_summary, values='Revenue', names='Customer_Category',
+        title='<b>Who brings in more money: New or Returning Customers?</b>',
+        color_discrete_map={'Returning Customers': COLOR_PALETTE['primary'], 'New Customers': COLOR_PALETTE['light']}
+    )
+    fig.update_traces(textposition='inside', textinfo='percent+label')
+    return fig
 
-        if st.button("Analyze Sales Performance (When?)"):
-            with st.spinner("Analyzing sales trends..."):
-                st.plotly_chart(plot_monthly_sales(st.session_state.df_cleaned), use_container_width=True)
-                st.plotly_chart(plot_daily_sales(st.session_state.df_cleaned), use_container_width=True)
-                st.plotly_chart(plot_hourly_sales(st.session_state.df_cleaned), use_container_width=True)
+def plot_average_order_value(df: pd.DataFrame) -> go.Figure:
+    """Creates a line chart showing the trend of Average Order Value (AOV)."""
+    order_revenue = df.groupby(['InvoiceYearMonth', 'Invoice'])['Revenue'].sum().reset_index()
+    aov_trend = order_revenue.groupby('InvoiceYearMonth')['Revenue'].mean().reset_index()
+    fig = px.line(
+        aov_trend, x='InvoiceYearMonth', y='Revenue',
+        title='<b>Are customers spending more per order over time?</b>',
+        labels={'InvoiceYearMonth': 'Month', 'Revenue': 'Average Order Value ($)'},
+        markers=True, color_discrete_sequence=[COLOR_PALETTE['danger']]
+    )
+    fig.update_layout(template='plotly_white')
+    return fig
 
-        if st.button("Analyze Performers (Best & Worst)"):
-            with st.spinner("Analyzing performers..."):
-                st.plotly_chart(plot_top_products(st.session_state.df_cleaned), use_container_width=True)
-                st.plotly_chart(plot_geographical_sales(st.session_state.df_cleaned), use_container_width=True)
-                st.markdown("---")
-                st.plotly_chart(plot_worst_performers(st.session_state.df_cleaned), use_container_width=True)
-        
-        if st.button("Analyze Customer & Product Behavior (How & Why?)"):
-            with st.spinner("Analyzing customer and product behavior..."):
-                st.plotly_chart(plot_new_vs_returning_customers(st.session_state.df_cleaned), use_container_width=True)
-                st.plotly_chart(plot_average_order_value(st.session_state.df_cleaned), use_container_width=True)
-                st.plotly_chart(analyze_market_basket(st.session_state.df_cleaned), use_container_width=True)
+def analyze_market_basket(df: pd.DataFrame, top_n: int = 15) -> go.Figure:
+    """Analyzes and returns a heatmap figure for market basket analysis."""
+    top_products = df['Description'].value_counts().nlargest(top_n).index
+    df_top = df[df['Description'].isin(top_products)]
+    crosstab = pd.crosstab(df_top['Invoice'], df_top['Description'])
+    crosstab[crosstab > 0] = 1
+    co_occurrence_matrix = crosstab.T.dot(crosstab)
+    np.fill_diagonal(co_occurrence_matrix.values, 0)
+    fig = go.Figure(data=go.Heatmap(
+        z=co_occurrence_matrix.values, x=co_occurrence_matrix.columns, y=co_occurrence_matrix.index, colorscale='Blues'))
+    fig.update_layout(title=f'<b>Which of Your Top {top_n} Products are Bought Together?</b>',
+                      xaxis_title="Products", yaxis_title="Products")
+    return fig
 
-        st.markdown("---")
-        
-        if st.button("Generate Overall Business Insights Summary", type="primary"):
-            with st.spinner("Analyzing your business..."):
-                display_eda_insights(st.session_state.df_cleaned)
-        
-        st.markdown("---")
-        
-        st.header("Drill-Down: Product-Specific Analysis")
-        product_list = st.session_state.df_cleaned['Description'].unique()
-        selected_product = st.selectbox("Select a Product to Analyze", product_list, key="product_eda")
-        
-        if st.button("Analyze Selected Product"):
-            with st.spinner(f"Analyzing {selected_product}..."):
-                product_df = st.session_state.df_cleaned[st.session_state.df_cleaned['Description'] == selected_product]
-                
-                st.subheader(f"Performance for: {selected_product}")
-                total_sales = product_df['Revenue'].sum()
-                units_sold = product_df['Quantity'].sum()
-                avg_price = product_df['Price'].mean()
-                num_countries = product_df['Country'].nunique()
-                
-                col1, col2, col3, col4 = st.columns(4)
-                col1.metric("Total Sales", f"${total_sales:,.2f}")
-                col2.metric("Total Units Sold", f"{units_sold:,}")
-                col3.metric("Average Price", f"${avg_price:,.2f}")
-                col4.metric("Sold in # Countries", num_countries)
+def display_eda_insights(df: pd.DataFrame):
+    """Generates and displays a summary of business insights from the EDA."""
+    st.header("💡 Key Business Takeaways from the Overview")
+    
+    monthly_sales = df.groupby('InvoiceYearMonth')['Revenue'].sum()
+    daily_sales = df.groupby('InvoiceWeekday')['Revenue'].sum()
+    hourly_sales = df.groupby('InvoiceHour')['Revenue'].sum()
+    top_product = df.groupby('Description')['Revenue'].sum().nlargest(1)
+    top_country = df.groupby('Country')['Revenue'].sum().nlargest(1)
+    
+    st.subheader("Performance Highlights")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Busiest Month", monthly_sales.idxmax(), f"${monthly_sales.max():,.0f} in sales")
+    col2.metric("Busiest Day", daily_sales.idxmax())
+    col3.metric("Busiest Hour", f"{hourly_sales.idxmax()}:00 - {hourly_sales.idxmax()+1}:00")
+    
+    st.subheader("Your Star Performers")
+    col1, col2 = st.columns(2)
+    col1.metric("Top Product", top_product.index[0], f"${top_product.values[0]:,.0f} in sales")
+    col2.metric("Top Country", top_country.index[0], f"${top_country.values[0]:,.0f} in sales")
+    
+    st.subheader("Actionable Advice")
+    st.markdown(f"""
+    - **Seasonal Strategy:** Your sales peak in **{monthly_sales.idxmax()}**. Plan your marketing campaigns and stock levels to take full advantage of this period.
+    - **Weekly Promotions:** **{daily_sales.idxmax()}** is your strongest sales day. Consider running special promotions or flash sales on slower days to even out weekly revenue.
+    - **Focus on Winners:** Your top product is **'{top_product.index[0]}'**. Ensure it's always in stock and consider bundling it with less popular items to boost their sales.
+    - **Market Focus:** **{top_country.index[0]}** is your biggest market. Think about targeted advertising or country-specific deals to further grow this key area.
+    """)
 
-                st.plotly_chart(plot_monthly_sales(product_df, title_prefix=f"{selected_product}: "), use_container_width=True)
-                st.plotly_chart(plot_daily_sales(product_df, title_prefix=f"{selected_product}: "), use_container_width=True)
-                st.plotly_chart(plot_geographical_sales(product_df, title_prefix=f"{selected_product}: "), use_container_width=True)
-                
-                display_eda_insights(product_df, title_prefix=f"for {selected_product}")
+# --- 5. RFM & K-MEANS ANALYSIS FUNCTIONS ---
 
-    with tab2:
-        st.header("Get to Know Your Customers Better")
-        segment_tab1, segment_tab2 = st.tabs(["Simple Customer Groups", "Smart Customer Groups (AI-Powered)"])
+def calculate_rfm_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculates Recency, Frequency, and Monetary values."""
+    analysis_date = df['InvoiceDate'].max() + pd.Timedelta(days=1)
+    rfm = df.groupby('Customer ID').agg({
+        'InvoiceDate': lambda date: (analysis_date - date.max()).days,
+        'Invoice': 'nunique',
+        'Revenue': 'sum'
+    })
+    rfm.columns = ['Recency', 'Frequency', 'Monetary']
+    return rfm
 
-        with segment_tab1:
-            st.subheader("Group Customers by Their Buying Habits")
-            st.markdown("This method groups customers based on how **Recently** they bought, how **Often** they buy, and how much **Money** they spend.")
-            if st.button("Group My Customers"):
-                with st.spinner("Grouping your customers..."):
-                    rfm_metrics = calculate_rfm_metrics(st.session_state.df_cleaned)
-                    rfm_segmented = segment_customers(rfm_metrics)
-                    rfm_final = assign_business_actions(rfm_segmented)
-                    
-                    st.subheader("Segment Summary")
-                    summary_df = generate_business_summary(rfm_final)
-                    st.dataframe(summary_df)
-                    st.download_button(
-                        label="Download Simple Segment Data (CSV)",
-                        data=summary_df.to_csv(index=False).encode('utf-8'),
-                        file_name='simple_customer_segments.csv',
-                        mime='text/csv',
-                    )
+def segment_customers(rfm_df: pd.DataFrame) -> pd.DataFrame:
+    """Assigns RFM scores and segments customers."""
+    rfm_df['R_Score'] = pd.qcut(rfm_df['Recency'], 5, labels=[5, 4, 3, 2, 1])
+    rfm_df['F_Score'] = pd.qcut(rfm_df['Frequency'].rank(method='first'), 5, labels=[1, 2, 3, 4, 5])
+    rfm_df['M_Score'] = pd.qcut(rfm_df['Monetary'], 5, labels=[1, 2, 3, 4, 5])
+    rf_score_str = rfm_df['R_Score'].astype(str) + rfm_df['F_Score'].astype(str)
+    segment_map = {
+        r'[1-2][1-2]': 'Sleeping', r'[1-2][3-4]': 'At Risk', r'[1-2]5': "Can't Lose Them",
+        r'3[1-2]': 'Fading', r'33': 'Need Attention', r'[3-4][4-5]': 'Loyal Customers',
+        r'41': 'Promising', r'51': 'New Customers', r'[4-5][2-3]': 'Potential Loyalists',
+        r'5[4-5]': 'Champions'
+    }
+    rfm_df['Segment'] = rf_score_str.replace(segment_map, regex=True)
+    return rfm_df
 
-                    st.subheader("Your Data with Segments Added")
-                    df_with_segments = merge_data_with_segments(st.session_state.df_cleaned, rfm_final, 'Segment')
-                    st.dataframe(df_with_segments.head())
+def assign_business_actions(rfm_df: pd.DataFrame) -> pd.DataFrame:
+    """Assigns suggested business actions to each segment."""
+    business_actions = {
+        "Sleeping": "Try to win them back with special offers or reminders.",
+        "Loyal Customers": "Reward them with exclusive deals and loyalty points.",
+        "Champions": "Treat them like VIPs! Offer early access and special gifts.",
+        "At Risk": "Send personalized emails and discounts to bring them back.",
+        "Potential Loyalists": "Encourage them to join a membership or loyalty program.",
+        "Fading": "Send 'we miss you' emails with a special offer.",
+        "Need Attention": "Ask for their feedback and suggest popular products.",
+        "Can't Lose Them": "Offer a great deal to keep them from leaving.",
+        "Promising": "Suggest other products they might like.",
+        "New Customers": "Give them a great first experience and a welcome discount."
+    }
+    rfm_df["Action"] = rfm_df["Segment"].map(business_actions)
+    return rfm_df
 
-                    st.plotly_chart(plot_rfm_pie_charts(rfm_final), use_container_width=True)
-                    st.plotly_chart(plot_rfm_sales_by_segment(rfm_final), use_container_width=True)
-                    st.plotly_chart(plot_rfm_distribution(rfm_final), use_container_width=True)
+def plot_rfm_distribution(rfm_df: pd.DataFrame) -> go.Figure:
+    """Creates a bar chart showing the distribution of customers across RFM segments."""
+    segment_counts = rfm_df['Segment'].value_counts().reset_index()
+    segment_counts.columns = ['Segment', 'Count']
+    fig = px.bar(
+        segment_counts, 
+        x='Count', 
+        y='Segment', 
+        orientation='h',
+        title='<b>How many customers are in each group?</b>',
+        labels={'Count': 'Number of Customers', 'Segment': 'Customer Group'},
+        color_discrete_sequence=[COLOR_PALETTE['primary']]
+    )
+    fig.update_layout(yaxis={'categoryorder':'total ascending'})
+    return fig
 
-                    display_rfm_insights(rfm_final)
+def plot_rfm_sales_by_segment(rfm_df: pd.DataFrame) -> go.Figure:
+    """Creates a bar chart showing total sales by RFM segment."""
+    segment_sales = rfm_df.groupby('Segment')['Monetary'].sum().sort_values(ascending=False).reset_index()
+    fig = px.bar(
+        segment_sales,
+        x='Segment',
+        y='Monetary',
+        title='<b>Which customer groups generate the most sales?</b>',
+        labels={'Monetary': 'Total Sales', 'Segment': 'Customer Group'},
+        color_discrete_sequence=[COLOR_PALETTE['success']]
+    )
+    return fig
 
-                    actions = rfm_final[['Segment', 'Action']].drop_duplicates().set_index('Segment')
-                    st.subheader("Recommended Actions for Each Group")
-                    st.table(actions)
+def plot_rfm_pie_charts(rfm_df: pd.DataFrame) -> go.Figure:
+    """Creates pie charts for customer count and revenue share by RFM segment."""
+    summary = rfm_df.groupby('Segment').agg(
+        Customer_Count=('Recency', 'count'),
+        Total_Revenue=('Monetary', 'sum')
+    ).reset_index()
+    fig = make_subplots(
+        rows=1, cols=2, 
+        specs=[[{'type':'domain'}, {'type':'domain'}]],
+        subplot_titles=("Share of Total Customers", "Share of Total Sales")
+    )
+    fig.add_trace(go.Pie(
+        labels=summary['Segment'], 
+        values=summary['Customer_Count'], 
+        name="Customers"
+    ), 1, 1)
+    fig.add_trace(go.Pie(
+        labels=summary['Segment'], 
+        values=summary['Total_Revenue'], 
+        name="Sales"
+    ), 1, 2)
+    fig.update_traces(hole=.4, hoverinfo="label+percent+name")
+    fig.update_layout(
+        title_text="<b>How big and valuable is each customer group?</b>",
+        legend_orientation="h"
+    )
+    return fig
 
-        with segment_tab2:
-            st.subheader("Let AI Find the Best Customer Groups")
-            st.markdown("This advanced method uses AI to look at your customer data and find the most natural groupings.")
-            if st.button("Help Me Find the Best Number of Groups"):
-                with st.spinner("Calculating..."):
-                    rfm_metrics = calculate_rfm_metrics(st.session_state.df_cleaned)
-                    fig = find_optimal_clusters(rfm_metrics)
-                    st.plotly_chart(fig, use_container_width=True)
-                    st.info("Look for the 'elbow' in the chart above – the point where the line starts to flatten out. That's usually the best number of groups to choose.")
+def generate_business_summary(rfm_df: pd.DataFrame) -> pd.DataFrame:
+    """Generates a summary table for each segment."""
+    summary = rfm_df.groupby('Segment').agg(
+        Customer_Count=('Recency', 'count'),
+        Avg_Recency=('Recency', 'mean'),
+        Avg_Frequency=('Frequency', 'mean'),
+        Total_Revenue=('Monetary', 'sum'),
+        Avg_Revenue=('Monetary', 'mean')
+    ).round(2)
+    total_customers = summary['Customer_Count'].sum()
+    total_revenue = summary['Total_Revenue'].sum()
+    summary['%_of_Customers'] = ((summary['Customer_Count'] / total_customers) * 100).round(2)
+    summary['%_of_Revenue'] = ((summary['Total_Revenue'] / total_revenue) * 100).round(2)
+    return summary.sort_values(by='Total_Revenue', ascending=False).reset_index()
 
-            k_clusters = st.slider("How many customer groups should we create?", 2, 10, 4, key='kmeans_k')
-            if st.button("Create Smart Groups"):
-                with st.spinner("The AI is thinking..."):
-                    rfm_metrics = calculate_rfm_metrics(st.session_state.df_cleaned)
-                    kmeans_clustered = perform_kmeans_clustering(rfm_metrics, k_clusters)
-                    
-                    cluster_names = get_cluster_names(kmeans_clustered)
-                    kmeans_clustered['Cluster_Name'] = kmeans_clustered['Cluster'].map(cluster_names)
-                    
-                    st.subheader("Smart Group Summary")
-                    kmeans_summary_df = generate_kmeans_summary_table(kmeans_clustered)
-                    st.dataframe(kmeans_summary_df)
-                    st.download_button(
-                        label="Download Smart Segment Data (CSV)",
-                        data=kmeans_summary_df.to_csv(index=False).encode('utf-8'),
-                        file_name='smart_customer_segments.csv',
-                        mime='text/csv',
-                    )
-                    
-                    st.subheader("Your Data with Segments Added")
-                    df_with_segments_kmeans = merge_data_with_segments(st.session_state.df_cleaned, kmeans_clustered, 'Cluster_Name')
-                    st.dataframe(df_with_segments_kmeans.head())
-                    st.download_button(
-                        label="Download Full Data with Smart Segments (CSV)",
-                        data=df_with_segments_kmeans.to_csv(index=False).encode('utf-8'),
-                        file_name='full_data_smart_segments.csv',
-                        mime='text/csv',
-                    )
-
-
-                    pie_fig = plot_kmeans_pie_charts(kmeans_clustered)
-                    st.plotly_chart(pie_fig, use_container_width=True)
-                    
-                    sales_bar_fig = plot_kmeans_sales_by_segment(kmeans_clustered)
-                    st.plotly_chart(sales_bar_fig, use_container_width=True)
-                    
-                    bar_fig = plot_kmeans_bar_charts(kmeans_clustered)
-                    st.plotly_chart(bar_fig, use_container_width=True)
-                    
-                    display_kmeans_business_insights(kmeans_clustered, cluster_names)
-
-    with tab3:
-        st.header("🔮 Predict Future Sales")
-        
-        product_list = st.session_state.df_cleaned['StockCode'].unique()
-        selected_product = st.selectbox("Select a Product ID to Predict Sales For", product_list)
-        
-        forecast_days = st.number_input("How many days do you want to predict into the future?", min_value=7, max_value=90, value=30, step=7)
-        
-        st.markdown("**(Optional) Upload these files to make predictions even better:**")
-        st.info("""
-        - **Competitor Prices File:** Must have a `Date` column and price columns like `our_price`, `competitor_A`, etc.
-        - **Customer Segments File:** Must have `Date`, `Segment`, and `Quantity` columns.
-        """)
-        col1_upload, col2_upload = st.columns(2)
-        with col1_upload:
-            competitor_file = st.file_uploader("Upload Competitor Prices (CSV)", type=['csv'], key="competitor")
-        with col2_upload:
-            segment_file = st.file_uploader("Upload Customer Group Sales (CSV)", type=['csv'], key="segment")
-
-        competitor_data = load_data(competitor_file) if competitor_file else None
-        segment_data = load_data(segment_file) if segment_file else None
-
-        col1_model, col2_model = st.columns(2)
-        with col1_model:
-            if st.button("Predict with Model 1"):
-                run_forecasting_pipeline(
-                    model_type='LSTM',
-                    df=st.session_state.df_cleaned,
-                    product_stock_code=selected_product,
-                    future_forecast_days=forecast_days,
-                    competitor_df=competitor_data,
-                    customer_segment_df=segment_data
-                )
-        with col2_model:
-            if st.button("Predict with Model 2"):
-                run_forecasting_pipeline(
-                    model_type='GRU',
-                    df=st.session_state.df_cleaned,
-                    product_stock_code=selected_product,
-                    future_forecast_days=forecast_days,
-                    competitor_df=competitor_data,
-                    customer_segment_df=segment_data
-                )
-
-        if st.session_state.model_trained:
-            st.markdown("---")
-            st.header("💰 Smart Price Suggestions")
-            if 'our_price' in st.session_state.daily_sales_df.columns:
-                st.subheader("Find the Best Price to Maximize Sales")
-                pricing_forecast_days = st.number_input(
-                    "How many days to test prices for?",
-                    min_value=1, max_value=90, value=7, step=1, key="pricing_days"
-                )
-
-                if st.button("Recommend the Best Price", type="primary"):
-                    with st.spinner(f"Testing different prices over {pricing_forecast_days} days..."):
-                        price_col_idx = st.session_state.daily_sales_df.columns.get_loc('our_price')
-                        optimal_row, price_results_df = recommend_optimal_price(
-                            model=st.session_state.trained_model,
-                            daily_df=st.session_state.daily_sales_df,
-                            scaler=st.session_state.scaler,
-                            seq_length=st.session_state.seq_length,
-                            target_col_idx=st.session_state.target_col_idx,
-                            price_col_idx=price_col_idx,
-                            num_features=st.session_state.daily_sales_df.shape[1],
-                            num_days_to_simulate=pricing_forecast_days
-                        )
-                        
-                        if price_results_df is not None:
-                            price_fig = plot_price_recommendation(price_results_df, optimal_row, pricing_forecast_days)
-                            st.plotly_chart(price_fig, use_container_width=True)
-                            
-                            current_price = st.session_state.daily_sales_df['our_price'].iloc[-1]
-                            display_pricing_insights(optimal_row, current_price, pricing_forecast_days, price_results_df)
-            else:
-                st.warning("Dynamic pricing requires price data. The 'our_price' column could not be found.")
-
-
-if __name__ == '__main__':
-    main()
-
+def display_rfm_insights(rfm_df: pd.DataFrame):
+    """Generates a text summary of insights from the RFM analysis."""
+    st.header("💡 Insights from Simple Customer Groups")
+    summary = rfm_df.groupby('Segment')['Monetary'].agg(['count', 'sum']).sort_values(by='sum', ascending=False)
+    total_revenue = rfm_df['Monetary'].sum()
+    total_customers = len(rfm_df)
+    
+    st.subheader(f"Your Most Valuable Group: **{summary.index[0]}**")
+    st.markdown(f"""
+    - The **'{summary.index[0]}'** group is your business's powerhouse.
+    - Although they make up only **{summary.iloc[0]['count'] / total_customers:.1%}** of your customers, they generate **${summary.iloc[0]['sum']:,.0f}**, which is **{summary.iloc[0]['sum'] / total_revenue:.1%}** of your total sales!
+    - **Action:** These are your VIPs. Focus your efforts on keeping them happy with exclusive rewards and personalized attention.
+    """)
+    
+    st.subheader(f"Group to Re-engage: **{summary.index[-1]}**")
+    st.markdown(f"""
+    - The **'{summary.index[-1]}'** group represents customers who haven't purchased in a while and may be at risk of leaving.
+    - **Action:** Launch a targeted 'we miss you' campaign with a special offer to win them back before they're gone for good.
