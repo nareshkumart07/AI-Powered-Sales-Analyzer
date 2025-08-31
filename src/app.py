@@ -414,3 +414,4 @@ def display_rfm_insights(rfm_df: pd.DataFrame):
     st.markdown(f"""
     - The **'{summary.index[-1]}'** group represents customers who haven't purchased in a while and may be at risk of leaving.
     - **Action:** Launch a targeted 'we miss you' campaign with a special offer to win them back before they're gone for good.
+    """)
