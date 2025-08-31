@@ -257,6 +257,13 @@ def main():
                     st.subheader("Your Data with Segments Added")
                     df_with_segments_kmeans = merge_data_with_segments(st.session_state.df_cleaned, kmeans_clustered, 'Cluster_Name')
                     st.dataframe(df_with_segments_kmeans.head())
+                    st.download_button(
+                        label="Download Full Data with Smart Segments (CSV)",
+                        data=df_with_segments_kmeans.to_csv(index=False).encode('utf-8'),
+                        file_name='full_data_smart_segments.csv',
+                        mime='text/csv',
+                    )
+
 
                     pie_fig = plot_kmeans_pie_charts(kmeans_clustered)
                     st.plotly_chart(pie_fig, use_container_width=True)
