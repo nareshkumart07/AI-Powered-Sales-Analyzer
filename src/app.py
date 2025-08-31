@@ -309,6 +309,7 @@ def main():
 
                 if st.button("Recommend the Best Price", type="primary"):
                     with st.spinner(f"Testing different prices over {pricing_forecast_days} days..."):
+                        st.subheader("Please wait...") 
                         price_col_idx = st.session_state.daily_sales_df.columns.get_loc('our_price')
                         optimal_row, price_results_df = recommend_optimal_price(
                             model=st.session_state.trained_model,
