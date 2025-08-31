@@ -292,8 +292,8 @@ def main():
         
         st.markdown("**(Optional) Upload these files to make predictions even better:**")
         st.info("""
-        - **Competitor Prices File:** Must have a `Date` column and price columns like `our_price`, `competitor_A`, etc.
-        - **Customer Segments File:** Must have `Date`, `Segment`, and `Quantity` columns.
+        - **Competitor Prices File:** Must have a `InvoiceDate` column and price columns like `our_price`, `competitor_A`, etc.
+        - **Customer Segments File:** Must have `InvoiceDate`, `Segment`, and `Quantity` columns.
         """)
         col1_upload, col2_upload = st.columns(2)
         with col1_upload:
