@@ -186,9 +186,8 @@ def main():
                 st.plotly_chart(plot_daily_sales(product_df, title_prefix=f"{selected_product}: "), use_container_width=True)
                 st.plotly_chart(plot_geographical_sales(product_df, title_prefix=f"{selected_product}: "), use_container_width=True)
                 
-                if st.button(f"Get Insights for {selected_product}", key=f"insights_{selected_product}"):
-                    display_eda_insights(product_df, title_prefix=f"for {selected_product}")
-
+                # Display insights for the selected product
+                display_eda_insights(product_df, title_prefix=f"for {selected_product}")
 
     with tab2:
         st.header("Get to Know Your Customers Better")
@@ -327,3 +326,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
