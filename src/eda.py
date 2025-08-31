@@ -189,3 +189,4 @@ def display_eda_insights(df: pd.DataFrame, title_prefix: str = "Overall"):
         """)
     else:
         st.warning("Not enough data to generate detailed advice.")
+
