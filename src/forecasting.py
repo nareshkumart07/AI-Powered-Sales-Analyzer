@@ -20,7 +20,7 @@ from utilities import COLOR_PALETTE
 # --- MODEL ARCHITECTURES ---
 class LSTMModel(nn.Module):
     """Defines the structure of the LSTM neural network."""
-    def __init__(self, input_size, hidden_size, num_layers, output_size, dropout_rate=0.4):
+    def __init__(self, input_size, hidden_size, num_layers, output_size, dropout_rate=0.2):
         super(LSTMModel, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -355,7 +355,7 @@ def run_forecasting_pipeline(
         st.error("There isn't enough data for this product to make a reliable prediction. Please try a different product or upload more data.")
         return
 
-    model_params = {'input_size': X.shape[2], 'hidden_size': 128, 'num_layers': 2, 'output_size': 1}
+    model_params = {'input_size': X.shape[2], 'hidden_size': 64, 'num_layers': 2, 'output_size': 1}
     training_params = {'num_epochs': 100, 'learning_rate': 0.01, 'patience': 25}
     
     model = LSTMModel(**model_params) if model_type == 'LSTM' else GRUModel(**model_params)
@@ -391,6 +391,7 @@ def run_forecasting_pipeline(
     st.session_state.seq_length = seq_length
     st.session_state.target_col_idx = target_col_idx
     st.session_state.model_trained = True
+
 
 
 
