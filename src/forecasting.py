@@ -333,7 +333,7 @@ def run_forecasting_pipeline(
     competitor_df: Optional[pd.DataFrame] = None,
     customer_segment_df: Optional[pd.DataFrame] = None,
     future_forecast_days: int = 30,
-    seq_length: int = 60,
+    seq_length: int = 90,
     train_split_ratio: float = 0.7,
     val_split_ratio: float = 0.15,
     seed: int = 42
@@ -391,6 +391,7 @@ def run_forecasting_pipeline(
     st.session_state.seq_length = seq_length
     st.session_state.target_col_idx = target_col_idx
     st.session_state.model_trained = True
+
 
 
 
