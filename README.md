@@ -29,6 +29,7 @@ Forecast Breakdown: Includes easy-to-understand visuals like a pie chart of pred
 Smart Price Suggestions: After running a forecast, this feature simulates different price points to recommend the optimal price for maximizing future revenue.
 
 **Project Structure**
+
 The application is organized into several modules for clarity and maintainability:
 
 **app.py**: The main file that runs the Streamlit application and controls the UI layout.
@@ -51,13 +52,17 @@ The application is organized into several modules for clarity and maintainabilit
 Follow these steps to get the application running on your local machine.
 
 **Prerequisites**
+
 Python 3.8 or newer
+
 Git
 
 Installation
+
 Clone the repository:
 
 git clone <your-repository-url>
+
 cd <your-repository-folder>
 
 Create a virtual environment (recommended):
