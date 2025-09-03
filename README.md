@@ -57,7 +57,7 @@ Python 3.8 or newer
 
 Git
 
-Installation
+**Installation**
 
 Clone the repository:
 
@@ -81,7 +81,8 @@ streamlit run app.py
 
 Your web browser should open with the application running locally at http://localhost:8501.
 
-Deployment
+**Deployment**
+
 This application is ready for deployment on the Streamlit Community Cloud.
 
 Upload to GitHub: Push all the project files (.py files and requirements.txt) to a public GitHub repository.
