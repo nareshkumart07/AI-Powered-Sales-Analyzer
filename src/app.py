@@ -25,10 +25,10 @@ from forecasting import run_forecasting_pipeline
 from dynamic_pricing import recommend_optimal_price, plot_price_recommendation, display_pricing_insights
 
 # --- APP CONFIGURATION & INITIALIZATION ---
-st.set_page_config(layout="wide", page_title="AI-Powered Sales Analyzer")
+st.set_page_config(layout="wide", page_title="AI-Powered Sales Analyzer & Forecasting Tool")
 
 def main():
-    st.title('AI-Powered Sales Analyzer')
+    st.title('AI-Powered Sales Analyzer & Forecasting Tool')
 
     with st.expander("ℹ️ How to Use This Tool & Data Requirements", expanded=True):
         st.markdown("""
